@@ -10,8 +10,7 @@ import serial
 import threading
 import time
 import re
-from indic_transliteration import sanscript
-from indic_transliteration.sanscript import transliterate
+from aksharamukha import transliterate
 
 init(autoreset=True)
 logging.getLogger('werkzeug').setLevel(logging.ERROR)
@@ -54,9 +53,11 @@ def clean_title(title):
 
 def convert_text(text):
     try:
-        t = transliterate(text, sanscript.DEVANAGARI, sanscript.ITRANS)
+        t = transliterate.process('Devanagari', 'ITRANS', text, pre_options=['SchwaDeletion'])
         t = t.replace(".", "")
         t = t.replace("'", "")
+        t = t.replace("M", "n")
+        t = t.replace("~N", "n") 
         t = t.lower()
         replacements = {
             "aa": "a",
@@ -75,11 +76,12 @@ def convert_text(text):
         }
         for k, v in replacements.items():
             t = t.replace(k, v)
+            
         t = " ".join(t.split())
         if len(t) > 0:
             t = t[0].upper() + t[1:]
         return t
-    except:
+    except Exception as e:
         return text
 
 def get_lrc(song):

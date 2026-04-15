@@ -4,4 +4,4 @@ requests
 pyfiglet
 colorama
 pyserial
-indic-transliteration
+aksharamukha
