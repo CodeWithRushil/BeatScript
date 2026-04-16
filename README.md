@@ -8,12 +8,12 @@ A full-stack project that extracts YouTube video titles using a Chrome extension
 
 ## 🚀 Features
 
-* 🎬 Chrome Extension to detect YouTube video titles automatically
-* 🌐 Flask backend API to process and manage requests
-* 🎵 Fetches synced lyrics (LRC format) from an online API
-* 🔄 Real-time lyric synchronization with timestamps
-* 🔤 Automatic transliteration (Hindi → English) for better readability
-* 💡 Arduino LED display integration for live lyric output
+* Chrome Extension to detect YouTube video titles automatically
+* Flask backend API to process and manage requests
+* Fetches synced lyrics (LRC format) from an online API
+* Real-time lyric synchronization with timestamps
+* Automatic transliteration (Hindi → Hinglish) for better readability
+* Arduino LED display integration for live lyric output
 
 ---
 
@@ -22,18 +22,18 @@ A full-stack project that extracts YouTube video titles using a Chrome extension
 ```
 BeatScript/
 │
-├── extension/                 # Chrome Extension
+├── extension/                 
 │   ├── manifest.json
 │   ├── content.js
 │   ├── icons/
 │
-├── backend/                   # Flask Backend
-│   ├── beatScript.py          # Main server
-│   ├── lyrics_processor.py    # Lyrics processing logic
+├── backend/                   
+│   ├── beatScript.bat          
+│   ├── lyrics_engine.py    
 │   ├── requirements.txt
 │
-├── arduino/                   # Arduino Code
-│   ├── lyrics_led.ino
+├── arduino/beatScript                  
+│   ├── beatScript.ino
 │
 ├── .gitignore
 ├── README.md
@@ -48,15 +48,30 @@ BeatScript/
 ```bash
 cd backend
 pip install -r requirements.txt
-python beatScript.py
 ```
 
-Server runs at:
+Run the backend:
+
+* On Windows: double-click `beatScript.bat`
+* Or via terminal:
+
+```bash
+python lyrics_engine.py
+```
+---
+
+### 🌐 Server
+
+The backend runs at:
 
 ```
 http://localhost:5000
 ```
 
+💡 **Note:**
+
+* `localhost` works if you're running everything on the same system
+* If accessing from another device on the same network, replace `localhost` with your machine’s IPv4 address (e.g., `http://192.168.x.x:5000`)
 ---
 
 ### 🔹 2. Load Chrome Extension
@@ -70,8 +85,8 @@ http://localhost:5000
 
 ### 🔹 3. Arduino Setup
 
-* Upload `lyrics_led.ino` to your Arduino board
-* Ensure correct COM port in `beatScript.py`:
+* Upload `beatScript.ino` to your Arduino board
+* Ensure correct COM port in `lyrics_engine.py`:
 
 ```python
 ser = serial.Serial('COM7', 9600)
@@ -88,7 +103,7 @@ ser = serial.Serial('COM7', 9600)
 5. Lyrics are parsed and timed
 6. Output is:
 
-   * Printed in terminal 🎨
+   * Printed in terminal 🎵 
    * Sent to Arduino LEDs 💡
 
 ---
