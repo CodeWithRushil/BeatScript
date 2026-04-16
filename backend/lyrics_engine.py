@@ -10,6 +10,7 @@ import serial
 import threading
 import time
 import re
+import requests
 
 init(autoreset=True)
 logging.getLogger('werkzeug').setLevel(logging.ERROR)
@@ -190,13 +191,26 @@ def convert_text(text: str) -> str:
     except Exception as e:
         return text
 
+def is_roman_script(text):
+    if re.search(r'[\u0900-\u097F\u0A00-\u0A7F]', text):
+        return False
+    return True
+
 def get_lrc(song):
     url = f"https://lrclib.net/api/search?q={song}"
-    res = requests.get(url).json()
+    try:
+        res = requests.get(url).json()
+    except requests.RequestException:
+        return None
+    best_fallback = None
     for item in res:
-        if item.get("syncedLyrics"):
-            return item["syncedLyrics"]
-    return None
+        lyrics = item.get("syncedLyrics")
+        if lyrics:
+            if best_fallback is None:
+                best_fallback = lyrics
+            if is_roman_script(lyrics):
+                return lyrics
+    return best_fallback
 
 def parse_lrc(lrc):
     lines = []
