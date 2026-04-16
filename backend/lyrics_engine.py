@@ -10,7 +10,6 @@ import serial
 import threading
 import time
 import re
-from aksharamukha import transliterate
 
 init(autoreset=True)
 logging.getLogger('werkzeug').setLevel(logging.ERROR)
@@ -40,6 +39,119 @@ def loading():
         print(Fore.YELLOW + "Loading" + "."*i)
         time.sleep(0.5)
 
+CONSONANTS = {
+    'क': 'k',  'ख': 'kh', 'ग': 'g',   'घ': 'gh',  'ङ': 'ng',
+    'च': 'ch', 'छ': 'chh','ज': 'j',   'झ': 'jh',  'ञ': 'n',
+    'ट': 't',  'ठ': 'th', 'ड': 'd',   'ढ': 'dh',  'ण': 'n',
+    'त': 't',  'थ': 'th', 'द': 'd',   'ध': 'dh',  'न': 'n',
+    'प': 'p',  'फ': 'ph', 'ब': 'b',   'भ': 'bh',  'म': 'm',
+    'य': 'y',  'र': 'r',  'ल': 'l',   'व': 'v',
+    'श': 'sh', 'ष': 'sh', 'स': 's',   'ह': 'h',
+    'क़': 'q',  'ख़': 'kh', 'ग़': 'gh',  'ज़': 'z',
+    'ड़': 'r',  'ढ़': 'rh', 'फ़': 'f',   'य़': 'y'
+}
+
+VOWELS_STANDALONE = {
+    'अ': 'a',  'आ': 'aa', 'इ': 'i',  'ई': 'ii',
+    'उ': 'u',  'ऊ': 'uu', 'ए': 'e',  'ऐ': 'ai',
+    'ओ': 'o',  'औ': 'au', 'ऋ': 'ri',
+}
+
+VOWEL_SIGNS = {
+    'ा': 'aa', 'ि': 'i',  'ी': 'i',  'ु': 'u',
+    'ू': 'u',  'े': 'e',  'ै': 'ai', 'ो': 'o',
+    'ौ': 'au', 'ृ': 'ri',
+}
+
+NUKTA_MAP = {
+    'क': 'q',  'ख': 'kh', 'ग': 'gh', 'ज': 'z',
+    'ड': 'r',  'ढ': 'rh', 'फ': 'f',  'य': 'y',
+}
+
+NUKTA       = '\u093C'
+ANUSVARA    = '\u0902' 
+CHANDRABINDU= '\u0901'   
+VISARGA     = '\u0903'   
+HALANT      = '\u094D'   
+
+WORD_FIXES = {
+    'rahaa':    'raha',    'rahii':    'rahi',
+    'nahii':    'nahi',    'kyaa':     'kya',
+    'haii':     'hai',     'teraa':    'tera',
+    'meraa':    'mera',
+    'karana':   'karna',   'mujhase':  'mujhse',
+    'tumhase':  'tumhse',  'sabase':   'sabse',
+    'usakaa':   'uska',    'usakee':   'uski',
+    'isase':    'isse',    'isako':    'isko',
+}
+
+def _transliterate_word(deva_word: str) -> str:
+    chars = list(deva_word)
+    n = len(chars)
+    syllables = [] 
+    i = 0
+    while i < n:
+        ch = chars[i]
+        if ch in CONSONANTS or (i + 1 < n and chars[i + 1] == NUKTA and ch in NUKTA_MAP):
+            if i + 1 < n and chars[i + 1] == NUKTA and ch in NUKTA_MAP:
+                roman_cons = NUKTA_MAP[ch]
+                i += 2
+            else:
+                roman_cons = CONSONANTS[ch]
+                i += 1
+            while i + 1 < n and chars[i] == HALANT and chars[i + 1] in CONSONANTS:
+                conj_cons = chars[i + 1]
+                if i + 2 < n and chars[i + 2] == NUKTA and conj_cons in NUKTA_MAP:
+                    roman_cons += NUKTA_MAP[conj_cons]
+                    i += 3
+                else:
+                    roman_cons += CONSONANTS[conj_cons]
+                    i += 2
+            if i < n and chars[i] == HALANT:
+                syllables.append((roman_cons, '', False))        
+                i += 1
+            elif i < n and chars[i] in VOWEL_SIGNS:
+                vsign = VOWEL_SIGNS[chars[i]]; i += 1
+                nasal = ''
+                if i < n and chars[i] in (ANUSVARA, CHANDRABINDU):
+                    nasal = 'n'; i += 1
+                syllables.append((roman_cons, vsign + nasal, False))
+            elif i < n and chars[i] in (ANUSVARA, CHANDRABINDU):
+                syllables.append((roman_cons, 'an', False)); i += 1
+            else:
+                syllables.append((roman_cons, 'a', True))       
+            continue
+        if ch in VOWELS_STANDALONE:
+            v = VOWELS_STANDALONE[ch]; i += 1
+            nasal = ''
+            if i < n and chars[i] in (ANUSVARA, CHANDRABINDU):
+                nasal = 'n'; i += 1
+            syllables.append(('', v + nasal, False))
+            continue
+
+        if ch in (ANUSVARA, CHANDRABINDU):
+            syllables.append(('', 'n', False)); i += 1; continue
+        if ch == VISARGA:
+            syllables.append(('', 'h', False)); i += 1; continue
+        if '\u0966' <= ch <= '\u096F':                           
+            syllables.append(('', str(ord(ch) - ord('\u0966')), False)); i += 1; continue
+        syllables.append(('', ch, False)); i += 1               
+
+    result = []
+    total = len(syllables)
+    for j, (cons, vowel, is_inh) in enumerate(syllables):
+        if is_inh and j == total - 1:
+            result.append(cons)          
+        else:
+            result.append(cons + vowel)
+    word = ''.join(result)
+    if word.endswith('aa'):
+        word = word[:-2] + 'a'
+    word = word.replace('chchh', 'chh')
+    word = word.replace('chch',  'chh')
+    word = word.replace('shsh',  'sh')
+    return word
+
 def clean_title(title):
     title = title.replace("- YouTube", "")
     title = re.sub(r"\(.*?\)", "", title)
@@ -51,36 +163,30 @@ def clean_title(title):
     title = title.split("|")[0]
     return title.strip()
 
-def convert_text(text):
+def convert_text(text: str) -> str:
     try:
-        t = transliterate.process('Devanagari', 'ITRANS', text, pre_options=['SchwaDeletion'])
-        t = t.replace(".", "")
-        t = t.replace("'", "")
-        t = t.replace("M", "n")
-        t = t.replace("~N", "n") 
+        tokens = text.split()
+        roman_tokens = []
+        for token in tokens:
+            # Pass through already-ASCII tokens (English words, numbers)
+            if all(ord(c) < 128 for c in token):
+                roman_tokens.append(token)
+            else:
+                roman_tokens.append(_transliterate_word(token))
+
+        t = ' '.join(roman_tokens)
+        t = t.replace('.', '').replace("'", '')
         t = t.lower()
-        replacements = {
-            "aa": "a",
-            "ii": "i",
-            "uu": "u",
-            "aii": "ai",
-            "ae": "e",
-            "aae": "aaye",
-            "aai": "aayi",
-            "rahaa": "raha",
-            "rahii": "rahi",
-            "nahii": "nahi",
-            "kyaa": "kya",
-            "haii": "hai",
-            "zindagii": "zindagi",
-        }
-        for k, v in replacements.items():
-            t = t.replace(k, v)
-            
-        t = " ".join(t.split())
-        if len(t) > 0:
+
+        # Apply word-level normalizations (whole-word matches only)
+        for k, v in WORD_FIXES.items():
+            t = re.sub(r'\b' + re.escape(k) + r'\b', v, t)
+
+        t = ' '.join(t.split())
+        if t:
             t = t[0].upper() + t[1:]
         return t
+
     except Exception as e:
         return text
 
